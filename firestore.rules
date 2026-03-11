@@ -1,0 +1,206 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required)
+    //   - role: string (required) - 'worker', 'employer', 'admin'
+    //   - email: string (required)
+    //   - displayName: string (optional)
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (required)
+    //   - experienceYears: number (optional)
+    //   - currentFactory: string (optional)
+    //   - skills: list (optional)
+    //   - machineExpertise: list (optional)
+    //   - videoPortfolioUrl: string (optional)
+    //   - translatedCV: string (optional)
+    //   - status: string (optional)
+    //   - companyName: string (optional)
+    //   - location: string (optional)
+    //   - companySize: string (optional)
+    //   - industry: string (optional)
+    //
+    // Collection: jobs
+    // Document ID: {jobId}
+    // Fields:
+    //   - id: string (required)
+    //   - employerId: string (required)
+    //   - title: string (required)
+    //   - description: string (required)
+    //   - machineRequirements: list (optional)
+    //   - gaugeRequirements: list (optional)
+    //   - hourlyWage: number (optional)
+    //   - currency: string (optional)
+    //   - visaType: string (optional)
+    //   - housingProvided: boolean (optional)
+    //   - status: string (required) - 'open', 'closed', 'draft'
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (required)
+    //
+    // Collection: applications
+    // Document ID: {applicationId}
+    // Fields:
+    //   - id: string (required)
+    //   - jobId: string (required)
+    //   - workerId: string (required)
+    //   - employerId: string (required)
+    //   - status: string (required) - 'pending', 'reviewed', 'shortlisted', 'rejected', 'hired'
+    //   - aiMatchScore: number (optional)
+    //   - aiMatchReasoning: string (optional)
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "raj.devopsbd@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isEmployer() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employer';
+    }
+
+    function isWorker() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'worker';
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && (email == '' || email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"));
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      let allowedRoles = ['worker', 'employer', 'admin'];
+      return hasRequiredFields(['uid', 'role', 'email', 'createdAt', 'updatedAt']) &&
+             data.uid is string &&
+             data.role in allowedRoles &&
+             data.email is string && isValidEmail(data.email) &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('experienceYears' in data) || (data.experienceYears is number && data.experienceYears >= 0 && data.experienceYears < 100)) &&
+             (!('currentFactory' in data) || (data.currentFactory is string && data.currentFactory.size() < 200)) &&
+             (!('skills' in data) || (data.skills is list && data.skills.size() < 50)) &&
+             (!('machineExpertise' in data) || (data.machineExpertise is list && data.machineExpertise.size() < 50)) &&
+             (!('videoPortfolioUrl' in data) || (data.videoPortfolioUrl is string && data.videoPortfolioUrl.size() < 500)) &&
+             (!('translatedCV' in data) || (data.translatedCV is string && data.translatedCV.size() < 20000)) &&
+             (!('status' in data) || (data.status in ['available', 'hired', 'inactive'])) &&
+             (!('companyName' in data) || (data.companyName is string && data.companyName.size() < 200)) &&
+             (!('location' in data) || (data.location is string && data.location.size() < 200)) &&
+             (!('companySize' in data) || (data.companySize is string && data.companySize.size() < 100)) &&
+             (!('industry' in data) || (data.industry is string && data.industry.size() < 100));
+    }
+
+    function isValidJob(data) {
+      let allowedStatuses = ['open', 'closed', 'draft'];
+      return hasRequiredFields(['id', 'employerId', 'title', 'description', 'status', 'createdAt', 'updatedAt']) &&
+             data.id is string &&
+             data.employerId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 10000 &&
+             data.status in allowedStatuses &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp &&
+             (!('machineRequirements' in data) || (data.machineRequirements is list && data.machineRequirements.size() < 50)) &&
+             (!('gaugeRequirements' in data) || (data.gaugeRequirements is list && data.gaugeRequirements.size() < 50)) &&
+             (!('hourlyWage' in data) || (data.hourlyWage is number && data.hourlyWage >= 0)) &&
+             (!('currency' in data) || (data.currency is string && data.currency.size() < 10)) &&
+             (!('visaType' in data) || (data.visaType is string && data.visaType.size() < 100)) &&
+             (!('housingProvided' in data) || data.housingProvided is bool);
+    }
+
+    function isValidApplication(data) {
+      let allowedStatuses = ['pending', 'reviewed', 'shortlisted', 'rejected', 'hired'];
+      return hasRequiredFields(['id', 'jobId', 'workerId', 'employerId', 'status', 'createdAt', 'updatedAt']) &&
+             data.id is string &&
+             data.jobId is string &&
+             data.workerId is string &&
+             data.employerId is string &&
+             data.status in allowedStatuses &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp &&
+             (!('aiMatchScore' in data) || (data.aiMatchScore is number && data.aiMatchScore >= 0 && data.aiMatchScore <= 100)) &&
+             (!('aiMatchReasoning' in data) || (data.aiMatchReasoning is string && data.aiMatchReasoning.size() < 5000));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && uidUnchanged() &&
+                    (request.resource.data.role != 'admin' || isAdmin());
+
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && uidNotModified() &&
+                    (request.resource.data.role == resource.data.role || (request.resource.data.role in ['worker', 'employer'] && resource.data.role in ['worker', 'employer']) || isAdmin());
+
+      allow delete: if isAdmin();
+    }
+
+    match /jobs/{jobId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isEmployer() && isValidJob(request.resource.data) &&
+                    request.resource.data.employerId == request.auth.uid;
+
+      allow update: if isEmployer() && isValidJob(request.resource.data) &&
+                    resource.data.employerId == request.auth.uid &&
+                    request.resource.data.employerId == resource.data.employerId;
+
+      allow delete: if isEmployer() && resource.data.employerId == request.auth.uid || isAdmin();
+    }
+
+    match /applications/{applicationId} {
+      allow read: if isAuthenticated() && (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid || isAdmin());
+
+      allow create: if isWorker() && isValidApplication(request.resource.data) &&
+                    request.resource.data.workerId == request.auth.uid;
+
+      allow update: if isAuthenticated() && isValidApplication(request.resource.data) &&
+                    (
+                      (isWorker() && resource.data.workerId == request.auth.uid && request.resource.data.workerId == resource.data.workerId && request.resource.data.employerId == resource.data.employerId && request.resource.data.jobId == resource.data.jobId) ||
+                      (isEmployer() && resource.data.employerId == request.auth.uid && request.resource.data.workerId == resource.data.workerId && request.resource.data.employerId == resource.data.employerId && request.resource.data.jobId == resource.data.jobId) ||
+                      isAdmin()
+                    );
+
+      allow delete: if isAdmin();
+    }
+  }
+}

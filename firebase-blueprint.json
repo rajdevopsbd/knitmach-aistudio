@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user of the platform, either a worker (candidate) or an employer (client).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique user ID from Firebase Auth." },
+        "role": { "type": "string", "enum": ["worker", "employer", "admin"], "description": "The role of the user." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "displayName": { "type": "string", "description": "The user's full name or company name." },
+        "createdAt": { "type": "timestamp", "description": "When the user profile was created." },
+        "updatedAt": { "type": "timestamp", "description": "When the user profile was last updated." },
+        "experienceYears": { "type": "number", "description": "Years of experience (Worker only)." },
+        "currentFactory": { "type": "string", "description": "Current or last factory name (Worker only)." },
+        "skills": { "type": "array", "items": { "type": "string" }, "description": "List of skills (Worker only)." },
+        "machineExpertise": { "type": "array", "items": { "type": "string" }, "description": "List of machine models the worker can operate (Worker only)." },
+        "videoPortfolioUrl": { "type": "string", "format": "uri", "description": "URL to a video demonstrating skills (Worker only)." },
+        "translatedCV": { "type": "string", "description": "English translation of the worker's CV (Worker only)." },
+        "status": { "type": "string", "enum": ["available", "hired", "inactive"], "description": "Worker availability status." },
+        "companyName": { "type": "string", "description": "Name of the manufacturing company (Employer only)." },
+        "location": { "type": "string", "description": "Location of the factory (Employer only)." },
+        "companySize": { "type": "string", "description": "Size of the company (Employer only)." },
+        "industry": { "type": "string", "description": "Specific industry focus (Employer only)." }
+      },
+      "required": ["uid", "role", "email", "createdAt", "updatedAt"]
+    },
+    "Job": {
+      "title": "Job Posting",
+      "description": "A job opening posted by an employer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique job ID." },
+        "employerId": { "type": "string", "description": "The UID of the employer who posted the job." },
+        "title": { "type": "string", "description": "Job title." },
+        "description": { "type": "string", "description": "Detailed job description." },
+        "machineRequirements": { "type": "array", "items": { "type": "string" }, "description": "Required machine expertise." },
+        "gaugeRequirements": { "type": "array", "items": { "type": "string" }, "description": "Required gauge expertise." },
+        "hourlyWage": { "type": "number", "description": "Hourly wage offered." },
+        "currency": { "type": "string", "description": "Currency of the wage (e.g., USD, EUR)." },
+        "visaType": { "type": "string", "description": "Visa sponsorship offered (e.g., H-2B, EU Blue Card)." },
+        "housingProvided": { "type": "boolean", "description": "Whether housing is provided." },
+        "status": { "type": "string", "enum": ["open", "closed", "draft"], "description": "Status of the job posting." },
+        "createdAt": { "type": "timestamp", "description": "When the job was posted." },
+        "updatedAt": { "type": "timestamp", "description": "When the job was last updated." }
+      },
+      "required": ["id", "employerId", "title", "description", "status", "createdAt", "updatedAt"]
+    },
+    "Application": {
+      "title": "Job Application",
+      "description": "An application submitted by a worker for a specific job.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique application ID." },
+        "jobId": { "type": "string", "description": "The ID of the job being applied to." },
+        "workerId": { "type": "string", "description": "The UID of the worker applying." },
+        "employerId": { "type": "string", "description": "The UID of the employer who posted the job." },
+        "status": { "type": "string", "enum": ["pending", "reviewed", "shortlisted", "rejected", "hired"], "description": "Status of the application." },
+        "aiMatchScore": { "type": "number", "description": "AI-generated match score (0-100)." },
+        "aiMatchReasoning": { "type": "string", "description": "AI-generated explanation for the match score." },
+        "createdAt": { "type": "timestamp", "description": "When the application was submitted." },
+        "updatedAt": { "type": "timestamp", "description": "When the application was last updated." }
+      },
+      "required": ["id", "jobId", "workerId", "employerId", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Collection of all users (workers, employers, admins)."
+    },
+    "jobs": {
+      "schema": { "$ref": "#/entities/Job" },
+      "description": "Collection of all job postings."
+    },
+    "applications": {
+      "schema": { "$ref": "#/entities/Application" },
+      "description": "Collection of all job applications."
+    }
+  }
+}

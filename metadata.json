@@ -1,0 +1,8 @@
+{
+  "name": "KnitMatch AI",
+  "description": "AI-powered labor arbitrage platform connecting Bangladeshi flat knitting machine operators with global employers.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
